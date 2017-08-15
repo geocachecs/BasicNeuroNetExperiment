@@ -15,7 +15,7 @@ class Neuron:
 		self._weightAdjustment = 0
 		self._goalActivation = 0.5
 		self._error = 0
-		
+		self._backAcvitationAdjustVariable = 0
 	def calculateActivation(self):
 		input = 0
 		for conn in self.connectionsBack:
@@ -34,15 +34,15 @@ class Neuron:
 	def getError(self):
 		return self._error
 	## 
-	def _calculateActivationWeightAdjustment(self):
+	def _calculateActivationWeightAdjustment(self): ## used in conjunction with _backActivationWeightAdjust() in a forward neuron thru Connection.backActivationWeightAdjust()
 		averageConnWeight = 0
 		for conn in self.connectionsForward:
 			averageConnWeight += conn.getWeight()
 		averageConnWeight /= len(self.connectionsForward)
 		self._weightAdjustment = (self._weightAdjustmentTemp/averageConnWeight)/len(self.connectionsForward)
 		self._weightAdjustmentTemp = 0
-	def _applyActivationWeightAdjustment(self,multiplier=1):
-		self._activationWeight += self._weightAdjustment*multiplier
+	def _applyActivationWeightAdjustment(self):
+		self._activationWeight += self._weightAdjustment
 	def _calculateGoalActivation(self): ##_calculateActivationWeightAdjustment() must be run first
  		if(self._weightAdjustment>=0):
 			self._goalActivation = 1
@@ -53,22 +53,26 @@ class Neuron:
 			self.connectionsBack.sort(key=lambda n:n.output,reverse=True)
 	def _calculateError(): ## _calculateGoalActivation() and _calculateActivationWeightAdjustment() must be run first
 		self._error = self._goalActivation - self.getActivation()
-	def _backActivationWeightAdjust(self,conn):
-		input = pow(self.e,self._input)/pow((pow(self.e,self._input)+1),2) * self.getError() * conn.getWeight()
-		conn.backActivationWeightAdjust(input)
+	def _calculateBackActivationAdjustVariable(self,multiplier=4)
+		self._backAcvitationAdjustVariable = pow(self.e,self._input)/pow((pow(self.e,self._input)+1),2) * self.getError() * multiplier
+	def _backActivationWeightAdjust(self,conn): ## used in conjunction with _calculateActivationWeightAdjustment() in a back neuron thru Connection.backActivationWeightAdjust()
+		conn.backActivationWeightAdjust(self._backAcvitationAdjustVariable*conn.getWeight)
 		
 	def backPropogate(self):
 		self._calculateActivationWeightAdjustment()
 		self._applyActivationWeightAdjustment()
 		self._calculateGoalActivation()
+		
 		self._sortConnections()
 		self.calculateActivation()
 		
+		self._calculateBackActivationAdjustVariable()
+		
 		for conn in self.connectionsBack:
 			self._calculateError()
-			differenceFromCurrentInput = conn.adjustWeight(self._error)
-			self._activation += differenceFromCurrentInput #updates activation for purposes of backpropogation
-
+			differenceFromCurrentInput = conn.adjustWeight(self._error) #adjusts weight on connection
+			self._input += differenceFromCurrentInput #updates input for purposes of backpropogation
+			self._backActivationWeightAdjust(conn) #contribute to back nueron's activation weight adjustment and goal activation
 
 		
 			
@@ -89,11 +93,11 @@ class Connection:
 		self.connectionWeight += percentage # atm I think this may be the best way to adjust
 		newOutput = self.getOutput()
 		return oldOutput-newOutput
-	def getWeight(self):
+	def getWeight(self): #used by Nueron._backActivationWeightAdjust()
 		return self.connectionWeight
 	def adjustBackNueronActivationWeight(self,percentage):
 		self.backNueron._weightAdjustment
-	def backActivationWeightAdjust(self,input):
+	def backActivationWeightAdjust(self,input): ## used by Neuron._backActivationWeightAdjust()
 		self.backNueron.contributeWeightAdjustment(input)
 
 
