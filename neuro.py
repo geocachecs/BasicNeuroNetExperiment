@@ -2,12 +2,12 @@ import random
 
 
 class Neuron:
-	def __init__(self,connectionsBack,connectionsForward):
+	def __init__(self):
 		self._activationWeight = (random.random() - 0.5) * 6 ## will set activation weight between -3 and 3
 		self._weightedInput = 0
 		self._activation = 0
-		self.connectionsBack = connectionsBack
-		self.connectionsForward = connectionsForward
+		self.connectionsBack = []
+		self.connectionsForward = []
 		self.e = 2.718281828459
 		
 		#following are for backpropogation
@@ -40,7 +40,8 @@ class Neuron:
 		backAcvitationAdjustVariable = pow(self.e,self._weightedInput)/pow((pow(self.e,self._weightedInput)+1),2) * self.getError() * multiplier
 		conn.backActivationWeightAdjust(backAcvitationAdjustVariable*conn.getWeight)
 	## public functions
-	def calculateActivation(self,input=0):
+	def calculateActivation(self): # input should always be zero
+		input=0
 		for conn in self.connectionsBack:
 			conn.calculateOutput()
 			input += conn.getOutput()
@@ -99,7 +100,7 @@ class Connection:
 		self.backNueron.contributeWeightAdjustment(input)
 
 class InputNeuron(Neuron,object):
-		def __init__():
+		def __init__(self):
 			super(InputNeuron,self).__init__()
 			self._activationWeight = 0
 		def _calculateActivationWeightAdjustment(self): ## used in conjunction with _backActivationWeightAdjust() in a forward neuron thru Connection.backActivationWeightAdjust()
@@ -132,7 +133,7 @@ class InputNeuron(Neuron,object):
 		
 class Brain:
 	def __init__(self,neurons): ##nodes should be a tuple describing the number of neurons in each layer, starting with the inputs and ending with outputs
-		if(len(nodes)<1):
+		if(len(neurons)<1):
 			raise ValueError("Must be more than one element in nodes")
 		self.neuronLayers = []
 		self.neuronLayers.append([])
@@ -140,22 +141,26 @@ class Brain:
 			self.neuronLayers[0].append(InputNeuron())
 		for i in range(1,len(neurons)):
 			self.neuronLayers.append([])
-			for j in range(0,neurons[i])
-			self.neuronLayers[i].append(Neuron())
+			for j in range(0,neurons[i]):
+				self.neuronLayers[i].append(Neuron())
 		
 		for i in range(1,len(self.neuronLayers)): ## connect all the neurons
 			for forwardNeuron in self.neuronLayers[i]:
 				for backNueron in self.neuronLayers[i-1]:
-				tempConn = Connection(forwardNeuron,backNueron)
-				backNueron.forwardConnect(tempConn)
-				forwardNueron.backConnect(tempConn)
+					tempConn = Connection(forwardNeuron,backNueron)
+					backNueron.forwardConnect(tempConn)
+					forwardNeuron.backConnect(tempConn)
 	
 	def forwardPropogate(self,inputs):
-		if(len(inputs)!=len(neuronLayers[0])):
+		if(len(inputs)!=len(self.neuronLayers[0])):
 			raise ValueError("Number of inputs must equal number of input neurons")
 		else:
 			for i in range(0,len(inputs)):
 				self.neuronLayers[0][i].calculateActivation(inputs[i])
-			
+			for i in range(1,len(self.neuronLayers)):
+				for neuron in self.neuronLayers[i]:
+					neuron.calculateActivation()
+			for neuron in self.neuronLayers[len(self.neuronLayers)-1]:
+				print neuron.getActivation()
 					
 
