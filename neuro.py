@@ -4,7 +4,7 @@ import random
 class Neuron:
 	def __init__(self,connectionsBack,connectionsForward):
 		self._activationWeight = (random.random() - 0.5) * 6 ## will set activation weight between -3 and 3
-		self._input = 0
+		self._weightedInput = 0
 		self._activation = 0
 		self.connectionsBack = connectionsBack
 		self.connectionsForward = connectionsForward
@@ -15,7 +15,6 @@ class Neuron:
 		self._weightAdjustment = 0
 		self._goalActivation = 0.5
 		self._error = 0
-		self._backAcvitationAdjustVariable = 0
 
 	## private functions
 	def _calculateActivationWeightAdjustment(self): ## used in conjunction with _backActivationWeightAdjust() in a forward neuron thru Connection.backActivationWeightAdjust()
@@ -37,50 +36,51 @@ class Neuron:
 			self.connectionsBack.sort(key=lambda n:n.output,reverse=True)
 	def _calculateError(): ## _calculateGoalActivation() and _calculateActivationWeightAdjustment() must be run first
 		self._error = self._goalActivation - self.getActivation()
-	def _calculateBackActivationAdjustVariable(self,multiplier=4):
-		self._backAcvitationAdjustVariable = pow(self.e,self._input)/pow((pow(self.e,self._input)+1),2) * self.getError() * multiplier
-	def _backActivationWeightAdjust(self,conn): ## used in conjunction with _calculateActivationWeightAdjustment() in a back neuron thru Connection.backActivationWeightAdjust()
-		conn.backActivationWeightAdjust(self._backAcvitationAdjustVariable*conn.getWeight)
+	def _backActivationWeightAdjust(self,conn,multiplier=4): ## used in conjunction with _calculateActivationWeightAdjustment() in a back neuron thru Connection.backActivationWeightAdjust()
+		backAcvitationAdjustVariable = pow(self.e,self._weightedInput)/pow((pow(self.e,self._weightedInput)+1),2) * self.getError() * multiplier
+		conn.backActivationWeightAdjust(backAcvitationAdjustVariable*conn.getWeight)
 	## public functions
-	def calculateActivation(self):
-		input = 0
+	def calculateActivation(self,input=0):
 		for conn in self.connectionsBack:
+			conn.calculateOutput()
 			input += conn.getOutput()
-		weightedInput = input+self._activationWeight
-		if(weightedInput>709): # numbers larger than 709 will cause OverflowError
+		self._weightedInput = input+self._activationWeight
+		if(self._weightedInput<-709): # numbers larger than 709 will cause OverflowError
 			self._activation =  0
 		else:
-			self._activation =  1/float(1 + pow(self.e,-weightedInput))
+			self._activation =  1/float(1 + pow(self.e,-self._weightedInput))
 	def getActivation(self):
 		return self._activation
-	def contributeWeightAdjustment(self,input):
+	def contributeWeightAdjustment(self,input): ##used by Connection class during backpropogation
 		self._weightAdjustmentTemp += input
 	def getError(self):
-		return self._error		
+		return self._error
+	def backConnect(self,conn):
+		self.connectionsBack.append(conn)
+	def forwardConnect(self,conn):
+		self.connectionsForward.append(conn)
+			
 	def backPropogate(self):
 		self._calculateActivationWeightAdjustment()
 		self._calculateGoalActivation()
 		self._applyActivationWeightAdjustment()
 		
-		
 		self._sortConnections()
-		self.calculateActivation()
-		
-		self._calculateBackActivationAdjustVariable()
 		
 		for conn in self.connectionsBack:
+			self.calculateActivation()
 			self._calculateError()
 			differenceFromCurrentInput = conn.adjustConnectionWeight(self._error) #adjusts weight on connection
-			self._input += differenceFromCurrentInput #updates input for purposes of backpropogation
+			self._weightedInput += differenceFromCurrentInput #updates input for purposes of backpropogation
 			self._backActivationWeightAdjust(conn) #contribute to back nueron's activation weight adjustment and goal activation
 
 		
 			
 class Connection:
-	def __init__(self,n1,n2):
-		self.connectionWeight  = (random.random() - 0.5) * 6
-		self.backNueron = n1
-		self.forwardNueron = n2
+	def __init__(self,forwardNeuron,backNueron):
+		self.connectionWeight  = (random.random() - 0.5) * 6 ## will set weight between -3 and 3
+		self.forwardNueron = forwardNeuron
+		self.backNueron = backNueron
 		self.output = 0
 	def newInput(self):
 		self.output = self.backNueron.getOutput() * self.connectionWeight
@@ -98,9 +98,64 @@ class Connection:
 	def backActivationWeightAdjust(self,input): ## used by Neuron._backActivationWeightAdjust()
 		self.backNueron.contributeWeightAdjustment(input)
 
+class InputNeuron(Neuron,object):
+		def __init__():
+			super(InputNeuron,self).__init__()
+			self._activationWeight = 0
+		def _calculateActivationWeightAdjustment(self): ## used in conjunction with _backActivationWeightAdjust() in a forward neuron thru Connection.backActivationWeightAdjust()
+			pass
+		def _applyActivationWeightAdjustment(self):
+			pass
+		def _calculateGoalActivation(self): ##_calculateActivationWeightAdjustment() must be run first
+			pass
+		def _sortConnections(self):
+			pass
+		def _calculateError(): ## _calculateGoalActivation() and _calculateActivationWeightAdjustment() must be run first
+			pass
+		def _calculateBackActivationAdjustVariable(self,multiplier=4):
+			pass
+		def _backActivationWeightAdjust(self,conn): ## used in conjunction with _calculateActivationWeightAdjustment() in a back neuron thru Connection.backActivationWeightAdjust()
+			pass
+		## public functions
+		def calculateActivation(self,input=0):
+				self._activation =  input
+				self._weightedInput = input + self._activationWeight #activation weight should be 0 anyway
+		def getActivation(self):
+			return self._activation
+		def contributeWeightAdjustment(self,input):
+			pass
+		def getError(self):
+			return None	
+		def backPropogate(self):
+			pass
+
+		
 class Brain:
+	def __init__(self,neurons): ##nodes should be a tuple describing the number of neurons in each layer, starting with the inputs and ending with outputs
+		if(len(nodes)<1):
+			raise ValueError("Must be more than one element in nodes")
+		self.neuronLayers = []
+		self.neuronLayers.append([])
+		for j in range(0,neurons[0]):
+			self.neuronLayers[0].append(InputNeuron())
+		for i in range(1,len(neurons)):
+			self.neuronLayers.append([])
+			for j in range(0,neurons[i])
+			self.neuronLayers[i].append(Neuron())
+		
+		for i in range(1,len(self.neuronLayers)): ## connect all the neurons
+			for forwardNeuron in self.neuronLayers[i]:
+				for backNueron in self.neuronLayers[i-1]:
+				tempConn = Connection(forwardNeuron,backNueron)
+				backNueron.forwardConnect(tempConn)
+				forwardNueron.backConnect(tempConn)
 	
-
-
-
+	def forwardPropogate(self,inputs):
+		if(len(inputs)!=len(neuronLayers[0])):
+			raise ValueError("Number of inputs must equal number of input neurons")
+		else:
+			for i in range(0,len(inputs)):
+				self.neuronLayers[0][i].calculateActivation(inputs[i])
+			
+					
 
