@@ -19,10 +19,11 @@ class Neuron:
 	## private functions
 	def _calculateActivationWeightAdjustment(self): ## used in conjunction with _backActivationWeightAdjust() in a forward neuron thru Connection.backActivationWeightAdjust()
 		averageConnWeight = 0
-		for conn in self.connectionsForward:
-			averageConnWeight += conn.getWeight()
-		averageConnWeight /= len(self.connectionsForward)
-		self._weightAdjustment = (self._weightAdjustmentTemp/averageConnWeight)/len(self.connectionsForward)
+		if(len(self.connectionsForward)>0):
+			for conn in self.connectionsForward:
+				averageConnWeight += conn.getWeight()
+			averageConnWeight /= len(self.connectionsForward)
+			self._weightAdjustment = (self._weightAdjustmentTemp/averageConnWeight)/len(self.connectionsForward)
 		self._weightAdjustmentTemp = 0
 	def _applyActivationWeightAdjustment(self):
 		self._activationWeight += self._weightAdjustment
@@ -34,11 +35,11 @@ class Neuron:
 	def _sortConnections(self):
 		if(len(self.connectionsBack)>0):
 			self.connectionsBack.sort(key=lambda n:n.output,reverse=True)
-	def _calculateError(): ## _calculateGoalActivation() and _calculateActivationWeightAdjustment() must be run first
+	def _calculateError(self): ## _calculateGoalActivation() and _calculateActivationWeightAdjustment() must be run first
 		self._error = self._goalActivation - self.getActivation()
 	def _backActivationWeightAdjust(self,conn,multiplier=4): ## used in conjunction with _calculateActivationWeightAdjustment() in a back neuron thru Connection.backActivationWeightAdjust()
 		backAcvitationAdjustVariable = pow(self.e,self._weightedInput)/pow((pow(self.e,self._weightedInput)+1),2) * self.getError() * multiplier
-		conn.backActivationWeightAdjust(backAcvitationAdjustVariable*conn.getWeight)
+		conn.backActivationWeightAdjust(backAcvitationAdjustVariable*conn.getWeight())
 	## public functions
 	def calculateActivation(self): # input should always be zero
 		input=0
@@ -60,7 +61,8 @@ class Neuron:
 		self.connectionsBack.append(conn)
 	def forwardConnect(self,conn):
 		self.connectionsForward.append(conn)
-			
+	def manuallySetGoalActivation(self,goal):
+		self._goalActivation = goal
 	def backPropogate(self):
 		self._calculateActivationWeightAdjustment()
 		self._calculateGoalActivation()
@@ -160,7 +162,22 @@ class Brain:
 			for i in range(1,len(self.neuronLayers)):
 				for neuron in self.neuronLayers[i]:
 					neuron.calculateActivation()
-			for neuron in self.neuronLayers[len(self.neuronLayers)-1]:
-				print neuron.getActivation()
 					
-
+	def getOutput(self):
+		output = []
+		for neuron in self.neuronLayers[len(self.neuronLayers)-1]:
+			output.append(neuron.getActivation())
+		return output
+					
+	def backPropogate(self,inputs,goalActivations):
+#		print type(self.neuronLayers)
+#		print type(self.neuronLayers[len(self.neuronLayers)-1])
+#		print type(self.neuronLayers[len(self.neuronLayers)-1][i])
+#		self.neuronLayers[len(self.neuronLayers)-1][i].manuallySetGoalActivation(1)
+#		print goalActivations[i]
+		for i in range(0,len(self.neuronLayers[len(self.neuronLayers)-1])):
+			self.neuronLayers[len(self.neuronLayers)-1][i].manuallySetGoalActivation(goalActivations[i])
+		for i in range(len(self.neuronLayers)-1,-1,-1):
+			for j in range(0,len(self.neuronLayers[i])):
+				self.neuronLayers[i][j].backPropogate()
+		
