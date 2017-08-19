@@ -8,9 +8,11 @@ class Neuron:
 		self._activation = 0
 		self.connectionsBack = []
 		self.connectionsForward = []
+		self.id = random.random()
 		self.e = 2.718281828459
 		
 		#following are for backpropogation
+		self._goalActivationManuallySet=False
 		self._weightAdjustmentTemp = 0
 		self._weightAdjustment = 0
 		self._goalActivation = 0.5
@@ -19,28 +21,42 @@ class Neuron:
 	## private functions
 	def _calculateActivationWeightAdjustment(self): ## used in conjunction with _backActivationWeightAdjust() in a forward neuron thru Connection.backActivationWeightAdjust()
 		averageConnWeight = 0
+		totalConnWeight = 0
 		if(len(self.connectionsForward)>0):
 			for conn in self.connectionsForward:
-				averageConnWeight += conn.getWeight()
-			averageConnWeight /= len(self.connectionsForward)
+				totalConnWeight += conn.getWeight()
+			averageConnWeight = totalConnWeight/len(self.connectionsForward)
 			self._weightAdjustment = (self._weightAdjustmentTemp/averageConnWeight)/len(self.connectionsForward)
 		self._weightAdjustmentTemp = 0
 	def _applyActivationWeightAdjustment(self):
 		self._activationWeight += self._weightAdjustment
 	def _calculateGoalActivation(self): ##_calculateActivationWeightAdjustment() must be run first
- 		if(self._weightAdjustment>=0):
-			self._goalActivation = 1
-		else:
-			self._goalActivation = 0
+		if(self._goalActivationManuallySet==False):
+			if(self._weightAdjustment>=0):
+				self._goalActivation = 0
+			else:
+				self._goalActivation = 1
 	def _sortConnections(self):
 		if(len(self.connectionsBack)>0):
 			self.connectionsBack.sort(key=lambda n:n.output,reverse=True)
 	def _calculateError(self): ## _calculateGoalActivation() and _calculateActivationWeightAdjustment() must be run first
 		self._error = self._goalActivation - self.getActivation()
 	def _backActivationWeightAdjust(self,conn,multiplier=4): ## used in conjunction with _calculateActivationWeightAdjustment() in a back neuron thru Connection.backActivationWeightAdjust()
-		backAcvitationAdjustVariable = pow(self.e,self._weightedInput)/pow((pow(self.e,self._weightedInput)+1),2) * self.getError() * multiplier
+		if(self._weightedInput > 354):
+			backAcvitationAdjustVariable = 0
+		else:
+			backAcvitationAdjustVariable = pow(self.e,self._weightedInput)/pow((pow(self.e,self._weightedInput)+1),2) * self.getError() * multiplier
 		conn.backActivationWeightAdjust(backAcvitationAdjustVariable*conn.getWeight())
 	## public functions
+	def getId(self):
+		return self.id
+	def printNeuron(self):
+		print "    Neuron # " + str(self.getId())
+		print "    Activation Weight: " + str(self._activationWeight)
+		print "    Forward Connections: "
+		for conn in self.connectionsForward:
+			print "       Connects to neuron # " + str(conn.getForwardNeuronId())
+			print "          Connection weight: " + str(conn.getWeight())
 	def calculateActivation(self): # input should always be zero
 		input=0
 		for conn in self.connectionsBack:
@@ -62,6 +78,7 @@ class Neuron:
 	def forwardConnect(self,conn):
 		self.connectionsForward.append(conn)
 	def manuallySetGoalActivation(self,goal):
+		self._goalActivationManuallySet = True
 		self._goalActivation = goal
 	def backPropogate(self):
 		self._calculateActivationWeightAdjustment()
@@ -73,7 +90,7 @@ class Neuron:
 		for conn in self.connectionsBack:
 			self.calculateActivation()
 			self._calculateError()
-			differenceFromCurrentInput = conn.adjustConnectionWeight(self._error) #adjusts weight on connection
+			differenceFromCurrentInput = conn.adjustConnectionWeight(self.getError()) #adjusts weight on connection
 			self._weightedInput += differenceFromCurrentInput #updates input for purposes of backpropogation
 			self._backActivationWeightAdjust(conn) #contribute to back nueron's activation weight adjustment and goal activation
 
@@ -82,7 +99,7 @@ class Neuron:
 class Connection:
 	def __init__(self,forwardNeuron,backNueron):
 		self.connectionWeight  = (random.random() - 0.5) * 6 ## will set weight between -3 and 3
-		self.forwardNueron = forwardNeuron
+		self.forwardNeuron = forwardNeuron
 		self.backNueron = backNueron
 		self.output = 0
 	def newInput(self):
@@ -100,6 +117,8 @@ class Connection:
 		return self.connectionWeight
 	def backActivationWeightAdjust(self,input): ## used by Neuron._backActivationWeightAdjust()
 		self.backNueron.contributeWeightAdjustment(input)
+	def getForwardNeuronId(self):
+		return self.forwardNeuron.getId()
 
 class InputNeuron(Neuron,object):
 		def __init__(self):
@@ -153,6 +172,10 @@ class Brain:
 					backNueron.forwardConnect(tempConn)
 					forwardNeuron.backConnect(tempConn)
 	
+	def getSolution(self,inputs):
+		self.forwardPropogate(inputs)
+		return self.getOutput()
+	
 	def forwardPropogate(self,inputs):
 		if(len(inputs)!=len(self.neuronLayers[0])):
 			raise ValueError("Number of inputs must equal number of input neurons")
@@ -170,14 +193,60 @@ class Brain:
 		return output
 					
 	def backPropogate(self,inputs,goalActivations):
-#		print type(self.neuronLayers)
-#		print type(self.neuronLayers[len(self.neuronLayers)-1])
-#		print type(self.neuronLayers[len(self.neuronLayers)-1][i])
-#		self.neuronLayers[len(self.neuronLayers)-1][i].manuallySetGoalActivation(1)
-#		print goalActivations[i]
 		for i in range(0,len(self.neuronLayers[len(self.neuronLayers)-1])):
 			self.neuronLayers[len(self.neuronLayers)-1][i].manuallySetGoalActivation(goalActivations[i])
 		for i in range(len(self.neuronLayers)-1,-1,-1):
 			for j in range(0,len(self.neuronLayers[i])):
 				self.neuronLayers[i][j].backPropogate()
-		
+	def train(self,inputs,goalActivations):
+		self.forwardPropogate(inputs)
+		self.backPropogate(inputs,goalActivations)
+	
+	def printBrain(self):
+		print "################ BRAIN ####################"
+		for i in range(0,len(self.neuronLayers)):
+			print 
+			print "########### Layer " + str(i)
+			for neuron in self.neuronLayers[i]:
+				print
+				neuron.printNeuron()
+				
+				
+				
+#########################################################################################################################
+###################################### TESTS ############################################################################
+
+cat = Brain((1,1,1))
+
+def test(num):
+	for _ in range(num):
+		rand = random.randrange(0,3)
+		if(rand==1):
+			cat.train([1],[0])
+		elif(rand==2):
+			cat.train([0],[1])
+#		if(rand == 1):
+#			cat.train([0,0],[0])
+#		elif(rand == 2):
+#			cat.train([0,1],[1])
+#		elif(rand == 3):
+#			cat.train([1,0],[1])
+#		elif(rand == 4):
+#			cat.train([1,1],[0])
+
+
+def test2(num):
+	lastOutput = -1
+	for _ in range(num):
+		cat.train([1],[1])
+		cat.printBrain()
+		print
+		solution = cat.getSolution([1])
+		print 
+		print solution
+		if(solution <= lastOutput):
+			break
+		else:
+			lastOutput = solution
+	
+	
