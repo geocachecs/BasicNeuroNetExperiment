@@ -33,12 +33,15 @@ class Neuron:
 	def _calculateGoalActivation(self): ##_calculateActivationWeightAdjustment() must be run first
 		if(self._goalActivationManuallySet==False):
 			if(self._weightAdjustment>=0):
-				self._goalActivation = 0
-			else:
 				self._goalActivation = 1
+			else:
+				self._goalActivation = 0
 	def _sortConnections(self):
 		if(len(self.connectionsBack)>0):
-			self.connectionsBack.sort(key=lambda n:n.output,reverse=True)
+			if(self._goalActivation >0.5):
+				self.connectionsBack.sort(key=lambda n:n.output,reverse=True)
+			else:
+				self.connectionsBack.sort(key=lambda n:n.output,reverse=False)
 	def _calculateError(self): ## _calculateGoalActivation() and _calculateActivationWeightAdjustment() must be run first
 		self._error = self._goalActivation - self.getActivation()
 	def _backActivationWeightAdjust(self,conn,multiplier=4): ## used in conjunction with _calculateActivationWeightAdjustment() in a back neuron thru Connection.backActivationWeightAdjust()
@@ -69,7 +72,7 @@ class Neuron:
 			self._activation =  1/float(1 + pow(self.e,-self._weightedInput))
 	def getActivation(self):
 		return self._activation
-	def contributeWeightAdjustment(self,input): ##used by Connection class during backpropogation
+	def receiveWeightAdjustmentContribution(self,input): ##used by Connection class during backpropogation
 		self._weightAdjustmentTemp += input
 	def getError(self):
 		return self._error
@@ -93,7 +96,6 @@ class Neuron:
 			differenceFromCurrentInput = conn.adjustConnectionWeight(self.getError()) #adjusts weight on connection
 			self._weightedInput += differenceFromCurrentInput #updates input for purposes of backpropogation
 			self._backActivationWeightAdjust(conn) #contribute to back nueron's activation weight adjustment and goal activation
-
 		
 			
 class Connection:
@@ -116,7 +118,7 @@ class Connection:
 	def getWeight(self): #used by Nueron._backActivationWeightAdjust()
 		return self.connectionWeight
 	def backActivationWeightAdjust(self,input): ## used by Neuron._backActivationWeightAdjust()
-		self.backNueron.contributeWeightAdjustment(input)
+		self.backNueron.receiveWeightAdjustmentContribution(input)
 	def getForwardNeuronId(self):
 		return self.forwardNeuron.getId()
 
@@ -144,7 +146,7 @@ class InputNeuron(Neuron,object):
 				self._weightedInput = input + self._activationWeight #activation weight should be 0 anyway
 		def getActivation(self):
 			return self._activation
-		def contributeWeightAdjustment(self,input):
+		def receiveWeightAdjustmentContribution(self,input):
 			pass
 		def getError(self):
 			return None	
@@ -216,23 +218,19 @@ class Brain:
 #########################################################################################################################
 ###################################### TESTS ############################################################################
 
-cat = Brain((1,1,1))
+cat = Brain((2,5,5,5,5,1))
 
 def test(num):
 	for _ in range(num):
 		rand = random.randrange(0,3)
-		if(rand==1):
-			cat.train([1],[0])
-		elif(rand==2):
-			cat.train([0],[1])
-#		if(rand == 1):
-#			cat.train([0,0],[0])
-#		elif(rand == 2):
-#			cat.train([0,1],[1])
-#		elif(rand == 3):
-#			cat.train([1,0],[1])
-#		elif(rand == 4):
-#			cat.train([1,1],[0])
+		if(rand == 1):
+			cat.train([0,0],[0])
+		elif(rand == 2):
+			cat.train([0,1],[1])
+		elif(rand == 3):
+			cat.train([1,0],[1])
+		elif(rand == 4):
+			cat.train([1,1],[0])
 
 
 def test2(num):
